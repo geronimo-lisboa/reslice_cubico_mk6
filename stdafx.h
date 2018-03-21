@@ -95,6 +95,8 @@
 #include <vtkOverlayPass.h>
 #include <vtkImageResliceToColors.h>
 #include <functional>
+#include <vtkPNGWriter.h>
+#include <vtkImageResample.h>
 typedef void(_stdcall*FNCallbackDeCarga)(float);
 
 struct ImageDataToDelphi {

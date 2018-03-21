@@ -89,6 +89,7 @@ int main(int argc, char** argv) {
 	auto resliceTransform = vtkSmartPointer<vtkTransform>::New();
 	resliceTransform->Translate(imagemImportadaPraVTK->GetOutput()->GetCenter());
 	reslicer->SetResliceTransform(resliceTransform);
+	reslicer->SetOutputDimensionality(2);
 	reslicer->Update();
 	vtkImageData *resultado = reslicer->GetOutput();
 	if (resultado->GetExtent()[1] == -1)
@@ -125,17 +126,40 @@ int main(int argc, char** argv) {
 		resliceTransform->Update();
 		reslicer->SetResliceTransform(resliceTransform);
 		reslicer->Update();
-
-		//pega o output e grava
+		//Solução do amassado
+		double spacingX = reslicer->GetOutput()->GetSpacing()[0];
+		double spacingY = reslicer->GetOutput()->GetSpacing()[1];
+		double ratioX = spacingX / spacingY;
+		double ratioY = spacingY / spacingX;
+		auto scaler = vtkSmartPointer<vtkImageResample>::New();
+		if (spacingX > spacingY){
+			scaler->SetAxisMagnificationFactor(0, ratioX);
+			scaler->SetAxisMagnificationFactor(1, 1);
+		}
+		else if (spacingX < spacingY){
+			scaler->SetAxisMagnificationFactor(0, 1);
+			scaler->SetAxisMagnificationFactor(1, ratioY);
+		}
+		else{
+			scaler->SetAxisMagnificationFactor(0, 1);
+			scaler->SetAxisMagnificationFactor(1, 1);
+		}
+		scaler->SetInputConnection(reslicer->GetOutputPort());
+		scaler->Update();
+		//Pra gravação em disco - aplica window
+		auto applyWl = vtkSmartPointer<vtkImageMapToWindowLevelColors>::New();
+		applyWl->SetWindow(350);
+		applyWl->SetLevel(50);
+		applyWl->SetOutputFormatToRGBA();
+		applyWl->SetInputConnection(scaler->GetOutputPort());
+		//Grava o png
+		auto pngWriter = vtkSmartPointer<vtkPNGWriter>::New();
+		pngWriter->SetInputConnection(applyWl->GetOutputPort());
 		boost::posix_time::ptime current_date_microseconds = boost::posix_time::microsec_clock::local_time();
 		long milliseconds = current_date_microseconds.time_of_day().total_milliseconds();
-		std::string filename = "C:\\reslice_cubico\\mk6\\dump\\" + boost::lexical_cast<std::string>(milliseconds)+".vti";
-		vtkSmartPointer<vtkXMLImageDataWriter> debugsave = vtkSmartPointer<vtkXMLImageDataWriter>::New();
-		debugsave->SetFileName(filename.c_str());
-		debugsave->SetInputConnection(reslicer->GetOutputPort());
-		debugsave->BreakOnError();
-		debugsave->Write();
-
+		std::string filename = "C:\\reslice_cubico\\mk6\\dump\\" + boost::lexical_cast<std::string>(milliseconds)+".png";
+		pngWriter->SetFileName(filename.c_str());
+		pngWriter->Write();
 		renderWindowCubo->Render();	});
 
 	///////////////////////////////////////////////////
