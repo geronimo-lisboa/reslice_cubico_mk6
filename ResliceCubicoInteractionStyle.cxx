@@ -10,6 +10,7 @@ ResliceCubicoInteractionStyle::ResliceCubicoInteractionStyle()
   this->InteractionProp = nullptr;
   this->InteractionPicker = vtkCellPicker::New();
   this->InteractionPicker->SetTolerance(0.001);
+  callbackRotacao = nullptr;
 }
 
 //----------------------------------------------------------------------------
@@ -282,7 +283,8 @@ void ResliceCubicoInteractionStyle::Rotate()
     {
       this->CurrentRenderer->ResetCameraClippingRange();
     }
-
+	if (callbackRotacao)
+		callbackRotacao(this->InteractionProp);
     rwi->Render();
   }
 }

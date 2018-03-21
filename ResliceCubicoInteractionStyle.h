@@ -7,7 +7,12 @@ class vtkCellPicker;
 
 class ResliceCubicoInteractionStyle : public vtkInteractorStyle
 {
+private:
+	std::function<void(vtkProp3D *)> callbackRotacao;
 public:
+	void SetCallbackDeRotacao(std::function<void(vtkProp3D *)> c){
+		callbackRotacao = c;
+	}
   static ResliceCubicoInteractionStyle *New();
   vtkTypeMacro(ResliceCubicoInteractionStyle,vtkInteractorStyle);
   void PrintSelf(ostream& os, vtkIndent indent) override;
