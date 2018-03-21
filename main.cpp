@@ -35,7 +35,7 @@ public:
 int main(int argc, char** argv) {
 	///Carga da imagem
 	ObserveLoadProgressCommand::Pointer prog = ObserveLoadProgressCommand::New();
-	const std::string txtFile = "c:\\meus dicoms\\marching man";
+	const std::string txtFile = "c:\\meus dicoms\\abdomem-feet-first";
 	const std::vector<std::string> lst = GetList(txtFile);
 	std::map<std::string, std::string> metadataDaImagem;
 	itk::Image<short, 3>::Pointer imagemOriginal = LoadVolume(metadataDaImagem, lst, prog);
@@ -71,6 +71,7 @@ int main(int argc, char** argv) {
 	cubeActor->SetPosition(imagemImportadaPraVTK->GetOutput()->GetCenter());
 	rendererCubo->AddActor(cubeActor);
 	rendererCubo->ResetCamera();
+	rendererCubo->GetActiveCamera()->Zoom(0.5);
 
 	//A saída do reslice
 	auto imageActor = vtkSmartPointer<vtkImageActor>::New();
@@ -116,6 +117,27 @@ int main(int argc, char** argv) {
 	cam->SetPosition(directionOfProjection);
 
 	renderWindowCubo->Render();
+	//Quando o cubo gira o reslice deve ser refeito com a orientação e posição espacial do cubo.
+	interactorStyleCubo->SetCallbackDeRotacao([reslicer, renderWindowCubo](vtkProp3D* cubo){
+		auto resliceTransform = vtkSmartPointer<vtkTransform>::New();
+		resliceTransform->Translate(cubo->GetCenter());
+		resliceTransform->RotateWXYZ(cubo->GetOrientationWXYZ()[0], cubo->GetOrientationWXYZ()[1], cubo->GetOrientationWXYZ()[2], cubo->GetOrientationWXYZ()[3] );
+		resliceTransform->Update();
+		reslicer->SetResliceTransform(resliceTransform);
+		reslicer->Update();
+
+		//pega o output e grava
+		boost::posix_time::ptime current_date_microseconds = boost::posix_time::microsec_clock::local_time();
+		long milliseconds = current_date_microseconds.time_of_day().total_milliseconds();
+		std::string filename = "C:\\reslice_cubico\\mk6\\dump\\" + boost::lexical_cast<std::string>(milliseconds)+".vti";
+		vtkSmartPointer<vtkXMLImageDataWriter> debugsave = vtkSmartPointer<vtkXMLImageDataWriter>::New();
+		debugsave->SetFileName(filename.c_str());
+		debugsave->SetInputConnection(reslicer->GetOutputPort());
+		debugsave->BreakOnError();
+		debugsave->Write();
+
+		renderWindowCubo->Render();	});
+
 	///////////////////////////////////////////////////
 	//A tela dummy PROS PROBLEMAS DO OPENGL
 	vtkSmartPointer<vtkRenderer> rendererDummy = vtkSmartPointer<vtkRenderer>::New();
