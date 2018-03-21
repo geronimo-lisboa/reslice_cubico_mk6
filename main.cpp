@@ -102,6 +102,20 @@ int main(int argc, char** argv) {
 	debugsave->SetInputConnection(reslicer->GetOutputPort());
 	debugsave->BreakOnError();
 	debugsave->Write();
+
+	//pega o output e exibe
+	//Ajeita a camera pra ela apontar pro centro do cubo
+	vtkCamera *cam = rendererCubo->GetActiveCamera();
+	double directionOfProjection[3];
+	cam->GetDirectionOfProjection(directionOfProjection);
+	double dist = cam->GetDistance();
+	cam->SetFocalPoint(cubeActor->GetCenter());
+	directionOfProjection[0] = cam->GetFocalPoint()[0] + -dist *directionOfProjection[0];
+	directionOfProjection[1] = cam->GetFocalPoint()[1] + -dist *directionOfProjection[1];
+	directionOfProjection[2] = cam->GetFocalPoint()[2] + -dist *directionOfProjection[2];
+	cam->SetPosition(directionOfProjection);
+
+	renderWindowCubo->Render();
 	///////////////////////////////////////////////////
 	//A tela dummy PROS PROBLEMAS DO OPENGL
 	vtkSmartPointer<vtkRenderer> rendererDummy = vtkSmartPointer<vtkRenderer>::New();
