@@ -72,6 +72,15 @@ int main(int argc, char** argv) {
 	rendererCubo->AddActor(cubeActor);
 	rendererCubo->ResetCamera();
 
+	//A saída do reslice
+	auto imageActor = vtkSmartPointer<vtkImageActor>::New();
+	imageActor->GetProperty()->SetColorLevel(50);
+	imageActor->GetProperty()->SetColorWindow(350);
+	imageActor->SetPosition(cubeActor->GetCenter());
+	imageActor->PickableOff();
+	rendererCubo->AddActor(imageActor);
+
+
 	///////////////////////////////////////////////////
 	//A tela dummy PROS PROBLEMAS DO OPENGL
 	vtkSmartPointer<vtkRenderer> rendererDummy = vtkSmartPointer<vtkRenderer>::New();
