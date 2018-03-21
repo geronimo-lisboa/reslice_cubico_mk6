@@ -92,6 +92,16 @@ int main(int argc, char** argv) {
 	vtkImageData *resultado = reslicer->GetOutput();
 	if (resultado->GetExtent()[1] == -1)
 		throw "ta errado";
+
+	//pega o output e grava
+	boost::posix_time::ptime current_date_microseconds = boost::posix_time::microsec_clock::local_time();
+	long milliseconds = current_date_microseconds.time_of_day().total_milliseconds();
+	std::string filename = "C:\\reslice_cubico\\mk6\\dump\\" + boost::lexical_cast<std::string>(milliseconds)+".vti";
+	vtkSmartPointer<vtkXMLImageDataWriter> debugsave = vtkSmartPointer<vtkXMLImageDataWriter>::New();
+	debugsave->SetFileName(filename.c_str());
+	debugsave->SetInputConnection(reslicer->GetOutputPort());
+	debugsave->BreakOnError();
+	debugsave->Write();
 	///////////////////////////////////////////////////
 	//A tela dummy PROS PROBLEMAS DO OPENGL
 	vtkSmartPointer<vtkRenderer> rendererDummy = vtkSmartPointer<vtkRenderer>::New();
