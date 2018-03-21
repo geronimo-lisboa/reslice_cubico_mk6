@@ -80,7 +80,18 @@ int main(int argc, char** argv) {
 	imageActor->PickableOff();
 	rendererCubo->AddActor(imageActor);
 
-
+	//O reslicer
+	auto reslicer = vtkSmartPointer<vtkImageSlabReslice>::New();
+	imageActor->GetMapper()->SetInputConnection(reslicer->GetOutputPort());
+	reslicer->SetInputConnection(imagemImportadaPraVTK->GetOutputPort());;
+	reslicer->AutoCropOutputOn();//Não sei se é on ou off o certo, mas sei que isso aqui controla se vai cortar a imagem ou se vai pegar ela toda.
+	auto resliceTransform = vtkSmartPointer<vtkTransform>::New();
+	resliceTransform->Translate(imagemImportadaPraVTK->GetOutput()->GetCenter());
+	reslicer->SetResliceTransform(resliceTransform);
+	reslicer->Update();
+	vtkImageData *resultado = reslicer->GetOutput();
+	if (resultado->GetExtent()[1] == -1)
+		throw "ta errado";
 	///////////////////////////////////////////////////
 	//A tela dummy PROS PROBLEMAS DO OPENGL
 	vtkSmartPointer<vtkRenderer> rendererDummy = vtkSmartPointer<vtkRenderer>::New();
