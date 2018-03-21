@@ -54,6 +54,24 @@ int main(int argc, char** argv) {
 	rendererCubo->SetBackground(0.3, 0, 0);
 	renderWindowCubo->Render();
 
+
+	//Cria o cubo
+	auto cubeSource = vtkSmartPointer<vtkCubeSource>::New();
+	cubeSource->SetXLength(100);
+	cubeSource->SetYLength(100);
+	cubeSource->SetZLength(100);
+	auto cubeMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+	cubeMapper->SetInputConnection(cubeSource->GetOutputPort());
+	auto cubeActor = vtkSmartPointer<vtkActor>::New();
+	cubeActor->SetMapper(cubeMapper);
+	cubeActor->GetProperty()->SetRepresentationToWireframe();
+	cubeActor->GetProperty()->ShadingOff();
+	cubeActor->GetProperty()->SetColor(0, 1, 0);
+	cubeActor->GetProperty()->LightingOff();
+	cubeActor->SetPosition(imagemImportadaPraVTK->GetOutput()->GetCenter());
+	rendererCubo->AddActor(cubeActor);
+	rendererCubo->ResetCamera();
+
 	///////////////////////////////////////////////////
 	//A tela dummy PROS PROBLEMAS DO OPENGL
 	vtkSmartPointer<vtkRenderer> rendererDummy = vtkSmartPointer<vtkRenderer>::New();
