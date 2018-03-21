@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "loadVolume.h"
 #include "utils.h"
+#include "ResliceCubicoInteractionStyle.h"
 
 
 class ObserveLoadProgressCommand : public itk::Command
@@ -42,10 +43,13 @@ int main(int argc, char** argv) {
 	imagemImportadaPraVTK->Update();
 	//Cria a tela do reslice cubico
 	auto rendererCubo = vtkSmartPointer<vtkRenderer>::New();
+	rendererCubo->GetActiveCamera()->ParallelProjectionOn();
 	auto renderWindowCubo = vtkSmartPointer<vtkRenderWindow>::New();
 	renderWindowCubo->AddRenderer(rendererCubo);
 	auto interactorCubo = vtkSmartPointer<vtkRenderWindowInteractor>::New();
 	renderWindowCubo->SetInteractor(interactorCubo);
+	auto interactorStyleCubo = vtkSmartPointer<ResliceCubicoInteractionStyle>::New();
+	interactorCubo->SetInteractorStyle(interactorStyleCubo);
 	rendererCubo->SetBackground(0.3, 0, 0);
 	renderWindowCubo->Render();
 	//Cria o cubo
@@ -56,6 +60,7 @@ int main(int argc, char** argv) {
 	imageActor->GetProperty()->SetColorLevel(50);
 	imageActor->GetProperty()->SetColorWindow(350);
 	imageActor->SetPosition(cubeActor->GetCenter());
+	imageActor->PickableOff();
 	rendererCubo->AddActor(imageActor);
 	//O reslicer
 	auto reslicer = vtkSmartPointer<vtkImageSlabReslice>::New();
