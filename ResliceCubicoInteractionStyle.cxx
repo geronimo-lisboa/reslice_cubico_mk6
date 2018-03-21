@@ -367,37 +367,56 @@ void ResliceCubicoInteractionStyle::Spin()
 //----------------------------------------------------------------------------
 void ResliceCubicoInteractionStyle::Pan()
 {
+	//if (this->CurrentRenderer == nullptr){
+	//	return;
+	//}
+	//vtkRenderWindowInteractor *rwi = this->Interactor;
+	//double viewFocus[4], focalDepth, viewPoint[3];
+	//double newPickPoint[4], oldPickPoint[4], motionVector[3];
+	////calculo do focal depth
+	//vtkCamera *camera = this->CurrentRenderer->GetActiveCamera();
+	//camera->GetFocalPoint(viewFocus);
+	//this->ComputeWorldToDisplay(viewFocus[0], viewFocus[1], viewFocus[2], viewFocus);
+	//focalDepth = viewFocus[2];
+	//this->ComputeDisplayToWorld(rwi->GetEventPosition()[0], rwi->GetEventPosition()[1], focalDepth, newPickPoint);
+	////Recalcula o mouse antigo
+	//this->ComputeDisplayToWorld(rwi->GetLastEventPosition()[0], rwi->GetLastEventPosition()[1], focalDepth, oldPickPoint);
+	//motionVector[0] = oldPickPoint[0] - newPickPoint[0];
+	//motionVector[1] = oldPickPoint[1] - newPickPoint[1];
+	//motionVector[2] = oldPickPoint[2] - newPickPoint[2];
+	//camera->GetFocalPoint(viewFocus);
+	//camera->GetPosition(viewPoint);
+	//camera->SetFocalPoint(motionVector[0] + viewFocus[0], motionVector[1] + viewFocus[1], motionVector[2] + viewFocus[2]);
+	//camera->SetPosition(motionVector[0] + viewPoint[0], motionVector[1] + viewPoint[1], motionVector[2] + viewPoint[2]);
+	//if (rwi->GetLightFollowCamera()){
+	//	this->CurrentRenderer->UpdateLightsGeometryToFollowCamera();
+	//}
+	//std::array<double, 3> _mv = { { motionVector[0], motionVector[1], motionVector[2] } };
+	//callbackPan(camera, _mv);
+	//rwi->Render();
+
   if (this->CurrentRenderer == nullptr || this->InteractionProp == nullptr)
   {
     return;
   }
-
   vtkRenderWindowInteractor *rwi = this->Interactor;
-
   // Use initial center as the origin from which to pan
-
   double *obj_center = this->InteractionProp->GetCenter();
-
   double disp_obj_center[3], new_pick_point[4];
   double old_pick_point[4], motion_vector[3];
-
   this->ComputeWorldToDisplay(obj_center[0], obj_center[1], obj_center[2],
                               disp_obj_center);
-
   this->ComputeDisplayToWorld(rwi->GetEventPosition()[0],
                               rwi->GetEventPosition()[1],
                               disp_obj_center[2],
                               new_pick_point);
-
   this->ComputeDisplayToWorld(rwi->GetLastEventPosition()[0],
                               rwi->GetLastEventPosition()[1],
                               disp_obj_center[2],
                               old_pick_point);
-
   motion_vector[0] = new_pick_point[0] - old_pick_point[0];
   motion_vector[1] = new_pick_point[1] - old_pick_point[1];
   motion_vector[2] = new_pick_point[2] - old_pick_point[2];
-
   if (this->InteractionProp->GetUserMatrix() != nullptr)
   {
     vtkTransform *t = vtkTransform::New();
@@ -413,12 +432,12 @@ void ResliceCubicoInteractionStyle::Pan()
                                        motion_vector[1],
                                        motion_vector[2]);
   }
-
   if (this->AutoAdjustCameraClippingRange)
   {
     this->CurrentRenderer->ResetCameraClippingRange();
   }
-
+  std::array<double, 3> _mv = { { motion_vector[0], motion_vector[1], motion_vector[2] } };
+  callbackPan(nullptr, _mv);
   rwi->Render();
 }
 

@@ -85,12 +85,11 @@ int main(int argc, char** argv) {
 	auto reslicer = vtkSmartPointer<vtkImageSlabReslice>::New();
 	imageActor->GetMapper()->SetInputConnection(reslicer->GetOutputPort());
 	reslicer->SetInputConnection(imagemImportadaPraVTK->GetOutputPort());;
-	reslicer->AutoCropOutputOn();//Não sei se é on ou off o certo, mas sei que isso aqui controla se vai cortar a imagem ou se vai pegar ela toda.
-	auto resliceTransform = vtkSmartPointer<vtkTransform>::New();
-	resliceTransform->Translate(imagemImportadaPraVTK->GetOutput()->GetCenter());
-	reslicer->SetResliceTransform(resliceTransform);
+	reslicer->AutoCropOutputOn();
 	reslicer->SetOutputDimensionality(2);
 	reslicer->Update();
+
+
 	vtkImageData *resultado = reslicer->GetOutput();
 	if (resultado->GetExtent()[1] == -1)
 		throw "ta errado";
@@ -118,14 +117,41 @@ int main(int argc, char** argv) {
 	cam->SetPosition(directionOfProjection);
 
 	renderWindowCubo->Render();
+	std::array<double, 3> resliceCenter = { { cubeActor->GetCenter()[0], cubeActor->GetCenter()[1], cubeActor->GetCenter()[2] } };//{ { -78, -55, -245 } };
+	//O callback do pan
+	interactorStyleCubo->SetCallbackPan([rendererCubo](vtkProp3D *cubo, std::array<double,3> mv){
+		vtkCamera *cam = rendererCubo->GetActiveCamera();
+		std::array<double, 3> pos;
+		cam->GetPosition(pos.data());
+		std::array<double, 3>focus;
+		cam->GetFocalPoint(focus.data());
+		pos = pos + mv;
+		focus = focus + mv;
+		cam->SetPosition(pos.data());
+		cam->SetFocalPoint(focus.data());
+	});
+
 	//Quando o cubo gira o reslice deve ser refeito com a orientação e posição espacial do cubo.
-	interactorStyleCubo->SetCallbackDeRotacao([reslicer, renderWindowCubo](vtkProp3D* cubo){
+	interactorStyleCubo->SetCallbackDeRotacao([reslicer, renderWindowCubo, resliceCenter, imageActor](vtkProp3D* cubo){
+		std::cout << "current cube pos " << cubo->GetCenter()[0] << ","
+			<< cubo->GetCenter()[1] << ","
+			<< cubo->GetCenter()[2] << std::endl;
+
+
 		auto resliceTransform = vtkSmartPointer<vtkTransform>::New();
-		resliceTransform->Translate(cubo->GetCenter());
 		resliceTransform->RotateWXYZ(cubo->GetOrientationWXYZ()[0], cubo->GetOrientationWXYZ()[1], cubo->GetOrientationWXYZ()[2], cubo->GetOrientationWXYZ()[3] );
 		resliceTransform->Update();
-		reslicer->SetResliceTransform(resliceTransform);
+
+		imageActor->SetPosition(cubo->GetCenter());
+		vtkMatrix4x4 *mat = resliceTransform->GetMatrix();
+		reslicer->SetResliceAxesDirectionCosines(mat->Element[0][0], mat->Element[1][0], mat->Element[2][0],
+			mat->Element[0][1], mat->Element[1][1], mat->Element[2][1],
+			mat->Element[0][2], mat->Element[1][2], mat->Element[2][2]
+			);
+		reslicer->SetResliceAxesOrigin(cubo->GetCenter());
+		//reslicer->SetResliceTransform(resliceTransform);
 		reslicer->Update();
+
 		//Solução do amassado
 		double spacingX = reslicer->GetOutput()->GetSpacing()[0];
 		double spacingY = reslicer->GetOutput()->GetSpacing()[1];
@@ -175,3 +201,4 @@ int main(int argc, char** argv) {
 
 	return EXIT_SUCCESS;
 }
+
