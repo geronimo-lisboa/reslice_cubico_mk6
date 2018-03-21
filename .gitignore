@@ -1,0 +1,12 @@
+build/
+bak/
+dump/
+old/
+old2/
+diagrama experimento.zargo~
+*.~ddp
+*.~dfm
+*.~pas
+*.dcu
+*.ddp
+*.exe
