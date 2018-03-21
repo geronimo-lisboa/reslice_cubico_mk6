@@ -48,10 +48,14 @@ int main(int argc, char** argv) {
 	renderWindowCubo->SetInteractor(interactorCubo);
 	rendererCubo->SetBackground(0.3, 0, 0);
 	renderWindowCubo->Render();
+	//Cria o cubo
+	auto cubeSource = vtkSmartPointer<vtkCubeSource>::New();	cubeSource->SetXLength(100);	cubeSource->SetYLength(100);	cubeSource->SetZLength(100);	auto cubeMapper = vtkSmartPointer<vtkPolyDataMapper>::New();	cubeMapper->SetInputConnection(cubeSource->GetOutputPort());	auto cubeActor = vtkSmartPointer<vtkActor>::New();	cubeActor->SetMapper(cubeMapper);	cubeActor->GetProperty()->SetRepresentationToWireframe();	cubeActor->GetProperty()->ShadingOff();	cubeActor->GetProperty()->SetColor(0, 1, 0);	cubeActor->GetProperty()->LightingOff();	cubeActor->SetPosition(imagemImportadaPraVTK->GetOutput()->GetCenter());	rendererCubo->AddActor(cubeActor);
+	rendererCubo->ResetCamera();
 	//A saída do reslice
 	auto imageActor = vtkSmartPointer<vtkImageActor>::New();
 	imageActor->GetProperty()->SetColorLevel(50);
 	imageActor->GetProperty()->SetColorWindow(350);
+	imageActor->SetPosition(cubeActor->GetCenter());
 	rendererCubo->AddActor(imageActor);
 	//O reslicer
 	auto reslicer = vtkSmartPointer<vtkImageSlabReslice>::New();
@@ -76,7 +80,17 @@ int main(int argc, char** argv) {
 	debugsave->Write();
 	//pega o output e exibe
 	imageActor->Update();
-	rendererCubo->ResetCamera();
+	//Ajeita a camera pra ela apontar pro centro do cubo
+	vtkCamera *cam = rendererCubo->GetActiveCamera();
+	double directionOfProjection[3];
+	cam->GetDirectionOfProjection(directionOfProjection);
+	double dist = cam->GetDistance();
+	cam->SetFocalPoint(cubeActor->GetCenter());
+	directionOfProjection[0] = cam->GetFocalPoint()[0] + -dist *directionOfProjection[0];
+	directionOfProjection[1] = cam->GetFocalPoint()[1] + -dist *directionOfProjection[1];
+	directionOfProjection[2] = cam->GetFocalPoint()[2] + -dist *directionOfProjection[2];
+	cam->SetPosition(directionOfProjection);
+
 	renderWindowCubo->Render();
 	///////////////////////////////////////////////////
 	//A tela dummy PROS PROBLEMAS DO OPENGL
