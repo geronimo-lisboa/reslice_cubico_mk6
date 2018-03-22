@@ -29,7 +29,42 @@ public:
 	}
 };
 
-
+void GravaTesteComoPNG(vtkImageSlabReslice *reslicer){
+	//Solução do amassado
+	double spacingX = reslicer->GetOutput()->GetSpacing()[0];
+	double spacingY = reslicer->GetOutput()->GetSpacing()[1];
+	double ratioX = spacingX / spacingY;
+	double ratioY = spacingY / spacingX;
+	auto scaler = vtkSmartPointer<vtkImageResample>::New();
+	if (spacingX > spacingY){
+		scaler->SetAxisMagnificationFactor(0, ratioX);
+		scaler->SetAxisMagnificationFactor(1, 1);
+	}
+	else if (spacingX < spacingY){
+		scaler->SetAxisMagnificationFactor(0, 1);
+		scaler->SetAxisMagnificationFactor(1, ratioY);
+	}
+	else{
+		scaler->SetAxisMagnificationFactor(0, 1);
+		scaler->SetAxisMagnificationFactor(1, 1);
+	}
+	scaler->SetInputConnection(reslicer->GetOutputPort());
+	scaler->Update();
+	//Pra gravação em disco - aplica window
+	auto applyWl = vtkSmartPointer<vtkImageMapToWindowLevelColors>::New();
+	applyWl->SetWindow(350);
+	applyWl->SetLevel(50);
+	applyWl->SetOutputFormatToRGBA();
+	applyWl->SetInputConnection(scaler->GetOutputPort());
+	//Grava o png
+	auto pngWriter = vtkSmartPointer<vtkPNGWriter>::New();
+	pngWriter->SetInputConnection(applyWl->GetOutputPort());
+	boost::posix_time::ptime current_date_microseconds = boost::posix_time::microsec_clock::local_time();
+	long milliseconds = current_date_microseconds.time_of_day().total_milliseconds();
+	std::string filename = "C:\\reslice_cubico\\mk6\\dump\\" + boost::lexical_cast<std::string>(milliseconds)+".png";
+	pngWriter->SetFileName(filename.c_str());
+	pngWriter->Write();
+}
 
 
 int main(int argc, char** argv) {
@@ -43,15 +78,20 @@ int main(int argc, char** argv) {
 	imagemImportadaPraVTK->Update();
 
 	//Cria a tela do reslice cubico
-	auto rendererCubo = vtkSmartPointer<vtkRenderer>::New();
-	rendererCubo->GetActiveCamera()->ParallelProjectionOn();
-	auto renderWindowCubo = vtkSmartPointer<vtkRenderWindow>::New();
-	renderWindowCubo->AddRenderer(rendererCubo);
+	auto rendererCubeLayer = vtkSmartPointer<vtkOpenGLRenderer>::New();
+	rendererCubeLayer->SetLayer(1);
+	rendererCubeLayer->GetActiveCamera()->ParallelProjectionOn();
+	auto rendererImageLayer = vtkSmartPointer<vtkOpenGLRenderer>::New();
+	rendererImageLayer->SetLayer(0);
+	rendererImageLayer->GetActiveCamera()->ParallelProjectionOn();
+	auto renderWindowCubo = vtkSmartPointer<vtkWin32OpenGLRenderWindow>::New();
+	renderWindowCubo->SetNumberOfLayers(2);
+	renderWindowCubo->AddRenderer(rendererImageLayer);
+	renderWindowCubo->AddRenderer(rendererCubeLayer);
 	auto interactorCubo = vtkSmartPointer<vtkRenderWindowInteractor>::New();
 	renderWindowCubo->SetInteractor(interactorCubo);
 	auto interactorStyleCubo = vtkSmartPointer<ResliceCubicoInteractionStyle>::New();
 	interactorCubo->SetInteractorStyle(interactorStyleCubo);
-	rendererCubo->SetBackground(0.3, 0, 0);
 	renderWindowCubo->Render();
 
 
@@ -69,9 +109,8 @@ int main(int argc, char** argv) {
 	cubeActor->GetProperty()->SetColor(0, 1, 0);
 	cubeActor->GetProperty()->LightingOff();
 	cubeActor->SetPosition(imagemImportadaPraVTK->GetOutput()->GetCenter());
-	rendererCubo->AddActor(cubeActor);
-	rendererCubo->ResetCamera();
-	rendererCubo->GetActiveCamera()->Zoom(0.5);
+	rendererCubeLayer->AddActor(cubeActor);
+	rendererCubeLayer->ResetCamera();
 
 	//A saída do reslice
 	auto imageActor = vtkSmartPointer<vtkImageActor>::New();
@@ -79,7 +118,8 @@ int main(int argc, char** argv) {
 	imageActor->GetProperty()->SetColorWindow(350);
 	imageActor->SetPosition(cubeActor->GetCenter());
 	imageActor->PickableOff();
-	rendererCubo->AddActor(imageActor);
+	rendererImageLayer->AddActor(imageActor);
+	rendererImageLayer->ResetCamera();
 
 	//O reslicer
 	auto reslicer = vtkSmartPointer<vtkImageSlabReslice>::New();
@@ -93,106 +133,39 @@ int main(int argc, char** argv) {
 	vtkImageData *resultado = reslicer->GetOutput();
 	if (resultado->GetExtent()[1] == -1)
 		throw "ta errado";
-
-	//pega o output e grava
-	boost::posix_time::ptime current_date_microseconds = boost::posix_time::microsec_clock::local_time();
-	long milliseconds = current_date_microseconds.time_of_day().total_milliseconds();
-	std::string filename = "C:\\reslice_cubico\\mk6\\dump\\" + boost::lexical_cast<std::string>(milliseconds)+".vti";
-	vtkSmartPointer<vtkXMLImageDataWriter> debugsave = vtkSmartPointer<vtkXMLImageDataWriter>::New();
-	debugsave->SetFileName(filename.c_str());
-	debugsave->SetInputConnection(reslicer->GetOutputPort());
-	debugsave->BreakOnError();
-	debugsave->Write();
-
-	//pega o output e exibe
-	//Ajeita a camera pra ela apontar pro centro do cubo
-	vtkCamera *cam = rendererCubo->GetActiveCamera();
-	double directionOfProjection[3];
-	cam->GetDirectionOfProjection(directionOfProjection);
-	double dist = cam->GetDistance();
-	cam->SetFocalPoint(cubeActor->GetCenter());
-	directionOfProjection[0] = cam->GetFocalPoint()[0] + -dist *directionOfProjection[0];
-	directionOfProjection[1] = cam->GetFocalPoint()[1] + -dist *directionOfProjection[1];
-	directionOfProjection[2] = cam->GetFocalPoint()[2] + -dist *directionOfProjection[2];
-	cam->SetPosition(directionOfProjection);
-
 	renderWindowCubo->Render();
-	std::array<double, 3> resliceCenter = { { cubeActor->GetCenter()[0], cubeActor->GetCenter()[1], cubeActor->GetCenter()[2] } };//{ { -78, -55, -245 } };
-	////O callback do pan
-	//interactorStyleCubo->SetCallbackPan([rendererCubo](vtkProp3D *cubo, std::array<double,3> mv){
-	//	vtkCamera *cam = rendererCubo->GetActiveCamera();
-	//	std::array<double, 3> pos;
-	//	cam->GetPosition(pos.data());
-	//	std::array<double, 3>focus;
-	//	cam->GetFocalPoint(focus.data());
-	//	pos = pos + mv;
-	//	focus = focus + mv;
-	//	cam->SetPosition(pos.data());
-	//	cam->SetFocalPoint(focus.data());
-	//});
+
+	//Qual é a posição inicial do reslice? É o centro da imagem.
+	std::array<double, 3> posicaoDoReslice = { { imagemImportadaPraVTK->GetOutput()->GetCenter()[0], imagemImportadaPraVTK->GetOutput()->GetCenter()[1], imagemImportadaPraVTK->GetOutput()->GetCenter()[2] } };
+
+
 	interactorStyleCubo->SetCallbackPan([cubeActor](vtkCamera *cam, std::array<double, 3> motionVector){
-		//Centro do cubo = focus
-		cout << "  pos anterior do cubo = " << cubeActor->GetPosition()[0] << ", " << cubeActor->GetPosition()[1] << ", " << cubeActor->GetPosition()[2] << std::endl;
-		cubeActor->SetPosition(cam->GetFocalPoint());
-		cout << "  pos atual do cubo = " << cubeActor->GetPosition()[0] << ", " << cubeActor->GetPosition()[1] << ", " << cubeActor->GetPosition()[2] << std::endl;
+
 	});
 
 	//Quando o cubo gira o reslice deve ser refeito com a orientação e posição espacial do cubo.
-	interactorStyleCubo->SetCallbackDeRotacao([reslicer, renderWindowCubo, resliceCenter, imageActor](vtkProp3D* cubo){
-		std::cout << "current cube pos " << cubo->GetCenter()[0] << ","
-			<< cubo->GetCenter()[1] << ","
-			<< cubo->GetCenter()[2] << std::endl;
+	interactorStyleCubo->SetCallbackDeRotacao([rendererImageLayer, reslicer, renderWindowCubo, &posicaoDoReslice, imageActor](vtkProp3D* cubo){
+		////Vou ter que pensar isso aqui melhor...
+		////Image actor na mesma posição do cubo pra tentar corrigir o movimento duplo no pan
+		//imageActor->SetPosition(cubo->GetCenter());
 
-
+		//Pega a orientação do cubo
 		auto resliceTransform = vtkSmartPointer<vtkTransform>::New();
-		resliceTransform->RotateWXYZ(cubo->GetOrientationWXYZ()[0], cubo->GetOrientationWXYZ()[1], cubo->GetOrientationWXYZ()[2], cubo->GetOrientationWXYZ()[3] );
+		resliceTransform->RotateWXYZ(cubo->GetOrientationWXYZ()[0], cubo->GetOrientationWXYZ()[1], cubo->GetOrientationWXYZ()[2], cubo->GetOrientationWXYZ()[3]);
 		resliceTransform->Update();
-
-		imageActor->SetPosition(cubo->GetCenter());
+		//Propriedades do reslice.
 		vtkMatrix4x4 *mat = resliceTransform->GetMatrix();
 		reslicer->SetResliceAxesDirectionCosines(mat->Element[0][0], mat->Element[1][0], mat->Element[2][0],
 			mat->Element[0][1], mat->Element[1][1], mat->Element[2][1],
 			mat->Element[0][2], mat->Element[1][2], mat->Element[2][2]
 			);
-		reslicer->SetResliceAxesOrigin(cubo->GetCenter());
-		//reslicer->SetResliceTransform(resliceTransform);
+		reslicer->SetResliceAxesOrigin(posicaoDoReslice.data());
 		reslicer->Update();
+		//Grava o teste no disco.
+		GravaTesteComoPNG(reslicer);
 
-		//Solução do amassado
-		double spacingX = reslicer->GetOutput()->GetSpacing()[0];
-		double spacingY = reslicer->GetOutput()->GetSpacing()[1];
-		double ratioX = spacingX / spacingY;
-		double ratioY = spacingY / spacingX;
-		auto scaler = vtkSmartPointer<vtkImageResample>::New();
-		if (spacingX > spacingY){
-			scaler->SetAxisMagnificationFactor(0, ratioX);
-			scaler->SetAxisMagnificationFactor(1, 1);
-		}
-		else if (spacingX < spacingY){
-			scaler->SetAxisMagnificationFactor(0, 1);
-			scaler->SetAxisMagnificationFactor(1, ratioY);
-		}
-		else{
-			scaler->SetAxisMagnificationFactor(0, 1);
-			scaler->SetAxisMagnificationFactor(1, 1);
-		}
-		scaler->SetInputConnection(reslicer->GetOutputPort());
-		scaler->Update();
-		//Pra gravação em disco - aplica window
-		auto applyWl = vtkSmartPointer<vtkImageMapToWindowLevelColors>::New();
-		applyWl->SetWindow(350);
-		applyWl->SetLevel(50);
-		applyWl->SetOutputFormatToRGBA();
-		applyWl->SetInputConnection(scaler->GetOutputPort());
-		//Grava o png
-		auto pngWriter = vtkSmartPointer<vtkPNGWriter>::New();
-		pngWriter->SetInputConnection(applyWl->GetOutputPort());
-		boost::posix_time::ptime current_date_microseconds = boost::posix_time::microsec_clock::local_time();
-		long milliseconds = current_date_microseconds.time_of_day().total_milliseconds();
-		std::string filename = "C:\\reslice_cubico\\mk6\\dump\\" + boost::lexical_cast<std::string>(milliseconds)+".png";
-		pngWriter->SetFileName(filename.c_str());
-		pngWriter->Write();
-		renderWindowCubo->Render();	});
+		rendererImageLayer->ResetCamera();
+	});
 
 	///////////////////////////////////////////////////
 	//A tela dummy PROS PROBLEMAS DO OPENGL
