@@ -118,17 +118,23 @@ int main(int argc, char** argv) {
 
 	renderWindowCubo->Render();
 	std::array<double, 3> resliceCenter = { { cubeActor->GetCenter()[0], cubeActor->GetCenter()[1], cubeActor->GetCenter()[2] } };//{ { -78, -55, -245 } };
-	//O callback do pan
-	interactorStyleCubo->SetCallbackPan([rendererCubo](vtkProp3D *cubo, std::array<double,3> mv){
-		vtkCamera *cam = rendererCubo->GetActiveCamera();
-		std::array<double, 3> pos;
-		cam->GetPosition(pos.data());
-		std::array<double, 3>focus;
-		cam->GetFocalPoint(focus.data());
-		pos = pos + mv;
-		focus = focus + mv;
-		cam->SetPosition(pos.data());
-		cam->SetFocalPoint(focus.data());
+	////O callback do pan
+	//interactorStyleCubo->SetCallbackPan([rendererCubo](vtkProp3D *cubo, std::array<double,3> mv){
+	//	vtkCamera *cam = rendererCubo->GetActiveCamera();
+	//	std::array<double, 3> pos;
+	//	cam->GetPosition(pos.data());
+	//	std::array<double, 3>focus;
+	//	cam->GetFocalPoint(focus.data());
+	//	pos = pos + mv;
+	//	focus = focus + mv;
+	//	cam->SetPosition(pos.data());
+	//	cam->SetFocalPoint(focus.data());
+	//});
+	interactorStyleCubo->SetCallbackPan([cubeActor](vtkCamera *cam, std::array<double, 3> motionVector){
+		//Centro do cubo = focus
+		cout << "  pos anterior do cubo = " << cubeActor->GetPosition()[0] << ", " << cubeActor->GetPosition()[1] << ", " << cubeActor->GetPosition()[2] << std::endl;
+		cubeActor->SetPosition(cam->GetFocalPoint());
+		cout << "  pos atual do cubo = " << cubeActor->GetPosition()[0] << ", " << cubeActor->GetPosition()[1] << ", " << cubeActor->GetPosition()[2] << std::endl;
 	});
 
 	//Quando o cubo gira o reslice deve ser refeito com a orientação e posição espacial do cubo.

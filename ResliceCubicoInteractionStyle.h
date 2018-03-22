@@ -9,14 +9,19 @@ class ResliceCubicoInteractionStyle : public vtkInteractorStyle
 {
 private:
 	std::function<void(vtkProp3D *)> callbackRotacao;
-	std::function<void(vtkProp3D *cubo, std::array<double, 3> motionVector)> callbackPan;
+	//std::function<void(vtkProp3D *cubo, std::array<double, 3> motionVector)> callbackPan;
+	std::function<void(vtkCamera *cam, std::array<double, 3> motionVector)> callbackPan;
 public:
 	void SetCallbackDeRotacao(std::function<void(vtkProp3D *)> c){
 		callbackRotacao = c;
 	}
-	void SetCallbackPan(std::function <void(vtkProp3D *cubo, std::array<double, 3> motionVector)> c){
+	//void SetCallbackPan(std::function <void(vtkProp3D *cubo, std::array<double, 3> motionVector)> c){
+	//	callbackPan = c;
+	//}
+	void SetCallbackPan(std::function<void(vtkCamera *cam, std::array<double, 3> motionVector)> c){
 		callbackPan = c;
 	}
+
   static ResliceCubicoInteractionStyle *New();
   vtkTypeMacro(ResliceCubicoInteractionStyle,vtkInteractorStyle);
   void PrintSelf(ostream& os, vtkIndent indent) override;
