@@ -250,6 +250,9 @@ void ResliceCubicoInteractionStyle::Rotate()
     double oldXAngle = vtkMath::DegreesFromRadians( asin( oxf ) );
     double oldYAngle = vtkMath::DegreesFromRadians( asin( oyf ) );
 
+	std::cout << __FUNCTION__ << " old x angle = " << oldXAngle << std::endl;
+	std::cout << __FUNCTION__ << " old y angle = " << oldYAngle << std::endl;
+
     double scale[3];
     scale[0] = scale[1] = scale[2] = 1.0;
 

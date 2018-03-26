@@ -3,6 +3,7 @@
 #include "utils.h"
 #include "ResliceCubicoInteractionStyle.h"
 
+double window = 0; double level = 0;
 
 class ObserveLoadProgressCommand : public itk::Command
 {
@@ -53,11 +54,8 @@ void GravaTesteComoPNG(vtkImageSlabReslice *reslicer){
 	//Pra gravação em disco - aplica window
 	auto applyWl = vtkSmartPointer<vtkImageMapToWindowLevelColors>::New();
 	///Marching man
-	//applyWl->SetWindow(2639);
-	//applyWl->SetLevel(1319);
-	///Outras
-	applyWl->SetWindow(350);
-	applyWl->SetLevel(50);
+	applyWl->SetWindow(window);
+	applyWl->SetLevel(level);
 
 	applyWl->SetOutputFormatToRGBA();
 	applyWl->SetInputConnection(scaler->GetOutputPort());
@@ -76,6 +74,9 @@ int main(int argc, char** argv) {
 	///Carga da imagem
 	ObserveLoadProgressCommand::Pointer prog = ObserveLoadProgressCommand::New();
 	const std::string txtFile = argv[1];// "C:\\meus dicoms\\Marching Man";
+	window = boost::lexical_cast<double>(argv[2]);
+	level = boost::lexical_cast<double>(argv[3]);
+
 	const std::vector<std::string> lst = GetList(txtFile);
 	std::map<std::string, std::string> metadataDaImagem;
 	itk::Image<short, 3>::Pointer imagemOriginal = LoadVolume(metadataDaImagem, lst, prog);
@@ -121,11 +122,8 @@ int main(int argc, char** argv) {
 	////A saída do reslice
 	auto imageActor = vtkSmartPointer<vtkImageActor>::New();
 	///Marching man
-	//imageActor->GetProperty()->SetColorLevel(1319);
-	//imageActor->GetProperty()->SetColorWindow(2639);
-	///Outras
-	imageActor->GetProperty()->SetColorWindow(350);
-	imageActor->GetProperty()->SetColorLevel(50);
+	imageActor->GetProperty()->SetColorLevel(level);
+	imageActor->GetProperty()->SetColorWindow(window);
 
 	imageActor->SetPosition(cubeActor->GetCenter());
 	imageActor->PickableOff();
@@ -162,6 +160,7 @@ int main(int argc, char** argv) {
 		cubeCam->SetPosition(oldPos.data());
 		cubeCam->SetFocalPoint(oldFocus.data());
 		//Transforma o motion vector pela orientação
+		cubeMatrix->Invert();
 		cubeMatrix->Element[0][3] = 0;//Pra garantir que a transformação de orientação esteja em 0,0,0, que é onde o mv tb estará
 		cubeMatrix->Element[1][3] = 0;
 		cubeMatrix->Element[2][3] = 0;
@@ -180,21 +179,15 @@ int main(int argc, char** argv) {
 	bool hasAlredySetCamera = false;
 	//Quando o cubo gira o reslice deve ser refeito com a orientação e posição espacial do cubo.
 	interactorStyleCubo->SetCallbackDeRotacao([&hasAlredySetCamera, rendererImageLayer, &posicaoDoReslice, cubeActor, reslicer, imageActor](vtkProp3D* cubo){
+		auto cubeMatrix = vtkSmartPointer<vtkMatrix4x4>::New();
+		cubeActor->GetMatrix(cubeMatrix);
 		//image actor sempre no centro da tela
 		std::array<double, 3> zero = { {0,0,0} };
 		imageActor->SetPosition(zero.data());
-
-		auto cubeMatrix = vtkSmartPointer<vtkMatrix4x4>::New();
-		cubeActor->GetMatrix(cubeMatrix);
-
+		cubeMatrix->Invert();
 		cubeMatrix->Element[0][3] = posicaoDoReslice[0];
 		cubeMatrix->Element[1][3] = posicaoDoReslice[1];
 		cubeMatrix->Element[2][3] = posicaoDoReslice[2];
-
-		//auto resliceTransform = vtkSmartPointer<vtkTransform>::New();
-		//resliceTransform->SetMatrix(cubeMatrix);
-		//resliceTransform->Update();
-		//reslicer->SetResliceTransform(resliceTransform);
 
 		reslicer->SetResliceAxesDirectionCosines(cubeMatrix->Element[0][0], cubeMatrix->Element[1][0], cubeMatrix->Element[2][0],
 			cubeMatrix->Element[0][1], cubeMatrix->Element[1][1], cubeMatrix->Element[2][1],
@@ -210,7 +203,7 @@ int main(int argc, char** argv) {
 		rendererImageLayer->GetRenderWindow()->Render();
 
 		cubeMatrix->Print(std::cout);
-		//GravaTesteComoPNG(reslicer);
+		GravaTesteComoPNG(reslicer);
 	});
 
 	///////////////////////////////////////////////////
