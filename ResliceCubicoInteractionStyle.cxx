@@ -360,7 +360,8 @@ void ResliceCubicoInteractionStyle::Spin()
   {
     this->CurrentRenderer->ResetCameraClippingRange();
   }
-
+  if (callbackRotacao)
+	  callbackRotacao(this->InteractionProp);
   rwi->Render();
 }
 

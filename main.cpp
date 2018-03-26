@@ -52,8 +52,13 @@ void GravaTesteComoPNG(vtkImageSlabReslice *reslicer){
 	scaler->Update();
 	//Pra gravação em disco - aplica window
 	auto applyWl = vtkSmartPointer<vtkImageMapToWindowLevelColors>::New();
-	applyWl->SetWindow(2639);
-	applyWl->SetLevel(1319);
+	///Marching man
+	//applyWl->SetWindow(2639);
+	//applyWl->SetLevel(1319);
+	///Outras
+	applyWl->SetWindow(350);
+	applyWl->SetLevel(50);
+
 	applyWl->SetOutputFormatToRGBA();
 	applyWl->SetInputConnection(scaler->GetOutputPort());
 	//Grava o png
@@ -70,7 +75,7 @@ void GravaTesteComoPNG(vtkImageSlabReslice *reslicer){
 int main(int argc, char** argv) {
 	///Carga da imagem
 	ObserveLoadProgressCommand::Pointer prog = ObserveLoadProgressCommand::New();
-	const std::string txtFile = "C:\\meus dicoms\\Marching Man";
+	const std::string txtFile = argv[1];// "C:\\meus dicoms\\Marching Man";
 	const std::vector<std::string> lst = GetList(txtFile);
 	std::map<std::string, std::string> metadataDaImagem;
 	itk::Image<short, 3>::Pointer imagemOriginal = LoadVolume(metadataDaImagem, lst, prog);
@@ -115,8 +120,13 @@ int main(int argc, char** argv) {
 
 	////A saída do reslice
 	auto imageActor = vtkSmartPointer<vtkImageActor>::New();
-	imageActor->GetProperty()->SetColorLevel(1319);
-	imageActor->GetProperty()->SetColorWindow(2639);
+	///Marching man
+	//imageActor->GetProperty()->SetColorLevel(1319);
+	//imageActor->GetProperty()->SetColorWindow(2639);
+	///Outras
+	imageActor->GetProperty()->SetColorWindow(350);
+	imageActor->GetProperty()->SetColorLevel(50);
+
 	imageActor->SetPosition(cubeActor->GetCenter());
 	imageActor->PickableOff();
 	rendererImageLayer->AddActor(imageActor);
@@ -157,11 +167,7 @@ int main(int argc, char** argv) {
 		cubeMatrix->Element[2][3] = 0;
 		double __mv[4] = { motionVector[0], motionVector[1], motionVector[2], 1 };
 		double* transMv = cubeMatrix->MultiplyDoublePoint(__mv); std::array<double, 3> motionVectorInResliceSpace = { { transMv[0], transMv[1], transMv[2], } };
-		std::cout << "---" << std::endl;
-		std::cout << " motion vector = " << motionVector[0] << ", " << motionVector[1] << ", " << motionVector[2] << std::endl;
-		std::cout << " transformed motion vector = " << transMv[0] << ", " << transMv[1] << ", " << transMv[2] << std::endl;
 		posicaoDoReslice = posicaoDoReslice + motionVectorInResliceSpace;
-		std::cout << " posicaoDoReslice = " << posicaoDoReslice[0] << ", " << posicaoDoReslice[1] << ", " << posicaoDoReslice[2] << std::endl;
 		//Move a imagem usando o motion vector
 		std::array<double, 3> antiMV = motionVector * -1.0;
 		std::array<double, 3> imagePos; imageActor->GetPosition(imagePos.data());
@@ -185,11 +191,16 @@ int main(int argc, char** argv) {
 		cubeMatrix->Element[1][3] = posicaoDoReslice[1];
 		cubeMatrix->Element[2][3] = posicaoDoReslice[2];
 
-		auto resliceTransform = vtkSmartPointer<vtkTransform>::New();
-		resliceTransform->SetMatrix(cubeMatrix);
-		resliceTransform->Update();
+		//auto resliceTransform = vtkSmartPointer<vtkTransform>::New();
+		//resliceTransform->SetMatrix(cubeMatrix);
+		//resliceTransform->Update();
+		//reslicer->SetResliceTransform(resliceTransform);
 
-		reslicer->SetResliceTransform(resliceTransform);
+		reslicer->SetResliceAxesDirectionCosines(cubeMatrix->Element[0][0], cubeMatrix->Element[1][0], cubeMatrix->Element[2][0],
+			cubeMatrix->Element[0][1], cubeMatrix->Element[1][1], cubeMatrix->Element[2][1],
+			cubeMatrix->Element[0][2], cubeMatrix->Element[1][2], cubeMatrix->Element[2][2]);
+		reslicer->SetResliceAxesOrigin(posicaoDoReslice.data());
+
 		reslicer->Update();
 		if (!hasAlredySetCamera){
 			hasAlredySetCamera = true;
@@ -197,7 +208,9 @@ int main(int argc, char** argv) {
 			rendererImageLayer->GetActiveCamera()->Zoom(2.0);
 		}
 		rendererImageLayer->GetRenderWindow()->Render();
-		std::cout << " posicaoDoReslice = " << posicaoDoReslice[0] << ", " << posicaoDoReslice[1] << ", " << posicaoDoReslice[2] << std::endl;
+
+		cubeMatrix->Print(std::cout);
+		//GravaTesteComoPNG(reslicer);
 	});
 
 	///////////////////////////////////////////////////
