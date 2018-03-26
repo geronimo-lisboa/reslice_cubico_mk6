@@ -104,9 +104,9 @@ int main(int argc, char** argv) {
 
 	//Cria o cubo
 	auto cubeSource = vtkSmartPointer<vtkCubeSource>::New();
-	cubeSource->SetXLength(100);
-	cubeSource->SetYLength(100);
-	cubeSource->SetZLength(100);
+	cubeSource->SetXLength(50);
+	cubeSource->SetYLength(50);
+	cubeSource->SetZLength(50);
 	auto cubeMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
 	cubeMapper->SetInputConnection(cubeSource->GetOutputPort());
 	auto cubeActor = vtkSmartPointer<vtkActor>::New();
@@ -118,6 +118,7 @@ int main(int argc, char** argv) {
 	//cubeActor->SetPosition(imagemImportadaPraVTK->GetOutput()->GetCenter());
 	rendererCubeLayer->AddActor(cubeActor);
 	rendererCubeLayer->ResetCamera();
+	rendererCubeLayer->GetActiveCamera()->Zoom(0.5);
 
 	////A saída do reslice
 	auto imageActor = vtkSmartPointer<vtkImageActor>::New();
