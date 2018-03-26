@@ -52,8 +52,8 @@ void GravaTesteComoPNG(vtkImageSlabReslice *reslicer){
 	scaler->Update();
 	//Pra gravação em disco - aplica window
 	auto applyWl = vtkSmartPointer<vtkImageMapToWindowLevelColors>::New();
-	applyWl->SetWindow(350);
-	applyWl->SetLevel(50);
+	applyWl->SetWindow(2639);
+	applyWl->SetLevel(1319);
 	applyWl->SetOutputFormatToRGBA();
 	applyWl->SetInputConnection(scaler->GetOutputPort());
 	//Grava o png
@@ -70,7 +70,7 @@ void GravaTesteComoPNG(vtkImageSlabReslice *reslicer){
 int main(int argc, char** argv) {
 	///Carga da imagem
 	ObserveLoadProgressCommand::Pointer prog = ObserveLoadProgressCommand::New();
-	const std::string txtFile = "c:\\meus dicoms\\abdomem-feet-first";
+	const std::string txtFile = "C:\\meus dicoms\\Marching Man";
 	const std::vector<std::string> lst = GetList(txtFile);
 	std::map<std::string, std::string> metadataDaImagem;
 	itk::Image<short, 3>::Pointer imagemOriginal = LoadVolume(metadataDaImagem, lst, prog);
@@ -81,6 +81,7 @@ int main(int argc, char** argv) {
 	auto rendererCubeLayer = vtkSmartPointer<vtkOpenGLRenderer>::New();
 	rendererCubeLayer->SetLayer(1);
 	rendererCubeLayer->GetActiveCamera()->ParallelProjectionOn();
+	rendererCubeLayer->SetBackground(1, 0, 0);
 	auto rendererImageLayer = vtkSmartPointer<vtkOpenGLRenderer>::New();
 	rendererImageLayer->SetLayer(0);
 	rendererImageLayer->GetActiveCamera()->ParallelProjectionOn();
@@ -108,63 +109,58 @@ int main(int argc, char** argv) {
 	cubeActor->GetProperty()->ShadingOff();
 	cubeActor->GetProperty()->SetColor(0, 1, 0);
 	cubeActor->GetProperty()->LightingOff();
-	cubeActor->SetPosition(imagemImportadaPraVTK->GetOutput()->GetCenter());
+	//cubeActor->SetPosition(imagemImportadaPraVTK->GetOutput()->GetCenter());
 	rendererCubeLayer->AddActor(cubeActor);
 	rendererCubeLayer->ResetCamera();
 
-	//A saída do reslice
-	auto imageActor = vtkSmartPointer<vtkImageActor>::New();
-	imageActor->GetProperty()->SetColorLevel(50);
-	imageActor->GetProperty()->SetColorWindow(350);
-	imageActor->SetPosition(cubeActor->GetCenter());
-	imageActor->PickableOff();
-	rendererImageLayer->AddActor(imageActor);
-	rendererImageLayer->ResetCamera();
+	////A saída do reslice
+	//auto imageActor = vtkSmartPointer<vtkImageActor>::New();
+	//imageActor->GetProperty()->SetColorLevel(50);
+	//imageActor->GetProperty()->SetColorWindow(350);
+	//imageActor->SetPosition(cubeActor->GetCenter());
+	//imageActor->PickableOff();
+	//rendererImageLayer->AddActor(imageActor);
+	//rendererImageLayer->ResetCamera();
 
-	//O reslicer
-	auto reslicer = vtkSmartPointer<vtkImageSlabReslice>::New();
-	imageActor->GetMapper()->SetInputConnection(reslicer->GetOutputPort());
-	reslicer->SetInputConnection(imagemImportadaPraVTK->GetOutputPort());;
-	reslicer->AutoCropOutputOn();
-	reslicer->SetOutputDimensionality(2);
-	reslicer->Update();
+	////O reslicer
+	//auto reslicer = vtkSmartPointer<vtkImageSlabReslice>::New();
+	//imageActor->GetMapper()->SetInputConnection(reslicer->GetOutputPort());
+	//reslicer->SetInputConnection(imagemImportadaPraVTK->GetOutputPort());;
+	//reslicer->AutoCropOutputOn();
+	//reslicer->SetOutputDimensionality(2);
+	//reslicer->Update();
 
 
-	vtkImageData *resultado = reslicer->GetOutput();
-	if (resultado->GetExtent()[1] == -1)
-		throw "ta errado";
-	renderWindowCubo->Render();
+	//vtkImageData *resultado = reslicer->GetOutput();
+	//if (resultado->GetExtent()[1] == -1)
+	//	throw "ta errado";
+	//renderWindowCubo->Render();
 
 	//Qual é a posição inicial do reslice? É o centro da imagem.
 	std::array<double, 3> posicaoDoReslice = { { imagemImportadaPraVTK->GetOutput()->GetCenter()[0], imagemImportadaPraVTK->GetOutput()->GetCenter()[1], imagemImportadaPraVTK->GetOutput()->GetCenter()[2] } };
 
 
-	interactorStyleCubo->SetCallbackPan([cubeActor](vtkCamera *cam, std::array<double, 3> motionVector){
+	interactorStyleCubo->SetCallbackPan([cubeActor, rendererCubeLayer](vtkCamera *cam, std::array<double, 3> motionVector){
+		auto cubeMatrix = vtkSmartPointer<vtkMatrix4x4>::New();
+		cubeActor->GetMatrix(cubeMatrix);
+		vtkCamera *cubeCam = rendererCubeLayer->GetActiveCamera();
+		std::array<double, 3> oldPos; cubeCam->GetPosition(oldPos.data());
+		std::array<double, 3> oldFocus; cubeCam->GetFocalPoint(oldFocus.data());
+		oldPos = oldPos + motionVector;
+		oldFocus = oldFocus + motionVector;
+		cubeCam->SetPosition(oldPos.data());
+		cubeCam->SetFocalPoint(oldFocus.data());
 
+		cubeMatrix->Print(cout);
 	});
 
+
+	bool hasAlredySetCamera = false;
 	//Quando o cubo gira o reslice deve ser refeito com a orientação e posição espacial do cubo.
-	interactorStyleCubo->SetCallbackDeRotacao([rendererImageLayer, reslicer, renderWindowCubo, &posicaoDoReslice, imageActor](vtkProp3D* cubo){
-		////Vou ter que pensar isso aqui melhor...
-		////Image actor na mesma posição do cubo pra tentar corrigir o movimento duplo no pan
-		//imageActor->SetPosition(cubo->GetCenter());
-
-		//Pega a orientação do cubo
-		auto resliceTransform = vtkSmartPointer<vtkTransform>::New();
-		resliceTransform->RotateWXYZ(cubo->GetOrientationWXYZ()[0], cubo->GetOrientationWXYZ()[1], cubo->GetOrientationWXYZ()[2], cubo->GetOrientationWXYZ()[3]);
-		resliceTransform->Update();
-		//Propriedades do reslice.
-		vtkMatrix4x4 *mat = resliceTransform->GetMatrix();
-		reslicer->SetResliceAxesDirectionCosines(mat->Element[0][0], mat->Element[1][0], mat->Element[2][0],
-			mat->Element[0][1], mat->Element[1][1], mat->Element[2][1],
-			mat->Element[0][2], mat->Element[1][2], mat->Element[2][2]
-			);
-		reslicer->SetResliceAxesOrigin(posicaoDoReslice.data());
-		reslicer->Update();
-		//Grava o teste no disco.
-		GravaTesteComoPNG(reslicer);
-
-		rendererImageLayer->ResetCamera();
+	interactorStyleCubo->SetCallbackDeRotacao([cubeActor](vtkProp3D* cubo){
+		auto cubeMatrix = vtkSmartPointer<vtkMatrix4x4>::New();
+		cubeActor->GetMatrix(cubeMatrix);
+		cubeMatrix->Print(std::cout);
 	});
 
 	///////////////////////////////////////////////////
