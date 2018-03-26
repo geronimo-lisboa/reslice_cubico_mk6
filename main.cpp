@@ -2,6 +2,7 @@
 #include "loadVolume.h"
 #include "utils.h"
 #include "ResliceCubicoInteractionStyle.h"
+#include "RenderLayer.h"
 
 double window = 0; double level = 0;
 
@@ -83,18 +84,14 @@ int main(int argc, char** argv) {
 	vtkSmartPointer<vtkImageImport> imagemImportadaPraVTK = CreateVTKImage(imagemOriginal);//importa a imagem da itk pra vtk.
 	imagemImportadaPraVTK->Update();
 
-	//Cria a tela do reslice cubico
-	auto rendererCubeLayer = vtkSmartPointer<vtkOpenGLRenderer>::New();
-	rendererCubeLayer->SetLayer(1);
-	rendererCubeLayer->GetActiveCamera()->ParallelProjectionOn();
-	rendererCubeLayer->SetBackground(1, 0, 0);
-	auto rendererImageLayer = vtkSmartPointer<vtkOpenGLRenderer>::New();
-	rendererImageLayer->SetLayer(0);
-	rendererImageLayer->GetActiveCamera()->ParallelProjectionOn();
+	//Cria as duas camadas
+	std::shared_ptr<RenderLayer> cubeLayer, imageLayer;
+	cubeLayer = std::make_shared<RenderLayer>(1);
+	imageLayer = std::make_shared<RenderLayer>(0);
 	auto renderWindowCubo = vtkSmartPointer<vtkWin32OpenGLRenderWindow>::New();
 	renderWindowCubo->SetNumberOfLayers(2);
-	renderWindowCubo->AddRenderer(rendererImageLayer);
-	renderWindowCubo->AddRenderer(rendererCubeLayer);
+	renderWindowCubo->AddRenderer(imageLayer->GetRenderer());
+	renderWindowCubo->AddRenderer(cubeLayer->GetRenderer());
 	auto interactorCubo = vtkSmartPointer<vtkRenderWindowInteractor>::New();
 	renderWindowCubo->SetInteractor(interactorCubo);
 	auto interactorStyleCubo = vtkSmartPointer<ResliceCubicoInteractionStyle>::New();
@@ -116,9 +113,9 @@ int main(int argc, char** argv) {
 	cubeActor->GetProperty()->SetColor(0, 1, 0);
 	cubeActor->GetProperty()->LightingOff();
 	//cubeActor->SetPosition(imagemImportadaPraVTK->GetOutput()->GetCenter());
-	rendererCubeLayer->AddActor(cubeActor);
-	rendererCubeLayer->ResetCamera();
-	rendererCubeLayer->GetActiveCamera()->Zoom(0.5);
+	cubeLayer->GetRenderer()->AddActor(cubeActor);
+	cubeLayer->GetRenderer()->ResetCamera();
+	cubeLayer->GetRenderer()->GetActiveCamera()->Zoom(0.5);
 
 	////A saída do reslice
 	auto imageActor = vtkSmartPointer<vtkImageActor>::New();
@@ -128,8 +125,8 @@ int main(int argc, char** argv) {
 
 	imageActor->SetPosition(cubeActor->GetCenter());
 	imageActor->PickableOff();
-	rendererImageLayer->AddActor(imageActor);
-	rendererImageLayer->ResetCamera();
+	imageLayer->GetRenderer()->AddActor(imageActor);
+	imageLayer->GetRenderer()->ResetCamera();
 
 	////O reslicer
 	auto reslicer = vtkSmartPointer<vtkImageSlabReslice>::New();
@@ -149,7 +146,7 @@ int main(int argc, char** argv) {
 	bool hasAlredySetCamera = false;
 	std::array<double, 3> posicaoDoReslice = { { imagemImportadaPraVTK->GetOutput()->GetCenter()[0], imagemImportadaPraVTK->GetOutput()->GetCenter()[1], imagemImportadaPraVTK->GetOutput()->GetCenter()[2] } };
 
-	interactorStyleCubo->SetCallbackDolly([reslicer, imageActor, &posicaoDoReslice, &hasAlredySetCamera, rendererImageLayer, cubeActor](double dollyFactor){
+	interactorStyleCubo->SetCallbackDolly([reslicer, imageActor, &posicaoDoReslice, &hasAlredySetCamera, imageLayer, cubeActor](double dollyFactor){
 		//image actor sempre no centro da tela
 		std::array<double, 3> zero = { { 0, 0, 0 } };
 		imageActor->SetPosition(zero.data());
@@ -177,26 +174,26 @@ int main(int argc, char** argv) {
 		reslicer->Update();
 		if (!hasAlredySetCamera){
 			hasAlredySetCamera = true;
-			rendererImageLayer->ResetCamera();
-			rendererImageLayer->GetActiveCamera()->Zoom(2.0);
+			imageLayer->GetRenderer()->ResetCamera();
+			imageLayer->GetRenderer()->GetActiveCamera()->Zoom(2.0);
 		}
-		rendererImageLayer->GetRenderWindow()->Render();
+		imageLayer->GetRenderer()->GetRenderWindow()->Render();
 		cubeMatrix->Print(std::cout);
 		GravaTesteComoPNG(reslicer);
 
 	});
 
-	interactorStyleCubo->SetCallbackDeZoom([rendererImageLayer](double scaleFactor){
-		auto cam = rendererImageLayer->GetActiveCamera();
+	interactorStyleCubo->SetCallbackDeZoom([imageLayer](double scaleFactor){
+		auto cam = imageLayer->GetRenderer()->GetActiveCamera();
 		std::cout << "  paralel scale = " << cam->GetParallelScale() << std::endl;
 		cam->Zoom(scaleFactor);
 	});
 
-	interactorStyleCubo->SetCallbackPan([&posicaoDoReslice,cubeActor, rendererCubeLayer, imageActor](vtkCamera *cam, std::array<double, 3> motionVector){
+	interactorStyleCubo->SetCallbackPan([&posicaoDoReslice,cubeActor, cubeLayer, imageActor](vtkCamera *cam, std::array<double, 3> motionVector){
 		///A câmera tem que acompanhar a posição do cubo.
 		auto cubeMatrix = vtkSmartPointer<vtkMatrix4x4>::New();
 		cubeActor->GetMatrix(cubeMatrix);
-		vtkCamera *cubeCam = rendererCubeLayer->GetActiveCamera();
+		vtkCamera *cubeCam = cubeLayer->GetRenderer()->GetActiveCamera();
 		std::array<double, 3> oldPos; cubeCam->GetPosition(oldPos.data());
 		std::array<double, 3> oldFocus; cubeCam->GetFocalPoint(oldFocus.data());
 		oldPos = oldPos + motionVector;
@@ -222,7 +219,7 @@ int main(int argc, char** argv) {
 
 
 	//Quando o cubo gira o reslice deve ser refeito com a orientação e posição espacial do cubo.
-	interactorStyleCubo->SetCallbackDeRotacao([&hasAlredySetCamera, rendererImageLayer, &posicaoDoReslice, cubeActor, reslicer, imageActor](vtkProp3D* cubo){
+	interactorStyleCubo->SetCallbackDeRotacao([&hasAlredySetCamera, imageLayer, &posicaoDoReslice, cubeActor, reslicer, imageActor](vtkProp3D* cubo){
 		//image actor sempre no centro da tela
 		std::array<double, 3> zero = { { 0, 0, 0 } };
 		imageActor->SetPosition(zero.data());
@@ -243,10 +240,10 @@ int main(int argc, char** argv) {
 		reslicer->Update();
 		if (!hasAlredySetCamera){
 			hasAlredySetCamera = true;
-			rendererImageLayer->ResetCamera();
-			rendererImageLayer->GetActiveCamera()->Zoom(2.0);
+			imageLayer->GetRenderer()->ResetCamera();
+			imageLayer->GetRenderer()->GetActiveCamera()->Zoom(2.0);
 		}
-		rendererImageLayer->GetRenderWindow()->Render();
+		imageLayer->GetRenderer()->GetRenderWindow()->Render();
 
 		cubeMatrix->Print(std::cout);
 		GravaTesteComoPNG(reslicer);

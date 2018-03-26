@@ -1,5 +1,6 @@
 #pragma once
 #define _SCL_SECURE_NO_WARNINGS
+#include <set>
 #include <vtkCellPicker.h>
 #include <vtkAbstractPropPicker.h>
 #include <vtkPNGWriter.h>
