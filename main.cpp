@@ -146,7 +146,45 @@ int main(int argc, char** argv) {
 	//renderWindowCubo->Render();
 
 	//Qual é a posição inicial do reslice? É o centro da imagem.
+	bool hasAlredySetCamera = false;
 	std::array<double, 3> posicaoDoReslice = { { imagemImportadaPraVTK->GetOutput()->GetCenter()[0], imagemImportadaPraVTK->GetOutput()->GetCenter()[1], imagemImportadaPraVTK->GetOutput()->GetCenter()[2] } };
+
+	interactorStyleCubo->SetCallbackDolly([reslicer, imageActor, &posicaoDoReslice, &hasAlredySetCamera, rendererImageLayer, cubeActor](double dollyFactor){
+		//image actor sempre no centro da tela
+		std::array<double, 3> zero = { { 0, 0, 0 } };
+		imageActor->SetPosition(zero.data());
+		//pega o z da matriz de reslice. O z é a direção do dolly.
+		std::array<double, 3> xVector, yVector, zVector;
+		reslicer->GetResliceAxesDirectionCosines(xVector.data(), yVector.data(), zVector.data());
+		//vê o deslocamento a ser aplicado à posição do reslice
+		std::array<double, 3> dZ = zVector *dollyFactor;
+		//soma dZ à posição do reslice
+		posicaoDoReslice = posicaoDoReslice + dZ;
+		//atualiza a tela
+		auto cubeMatrix = vtkSmartPointer<vtkMatrix4x4>::New();
+		cubeActor->GetMatrix(cubeMatrix);
+
+		cubeMatrix->Invert();
+		cubeMatrix->Element[0][3] = posicaoDoReslice[0];
+		cubeMatrix->Element[1][3] = posicaoDoReslice[1];
+		cubeMatrix->Element[2][3] = posicaoDoReslice[2];
+
+		reslicer->SetResliceAxesDirectionCosines(cubeMatrix->Element[0][0], cubeMatrix->Element[1][0], cubeMatrix->Element[2][0],
+			cubeMatrix->Element[0][1], cubeMatrix->Element[1][1], cubeMatrix->Element[2][1],
+			cubeMatrix->Element[0][2], cubeMatrix->Element[1][2], cubeMatrix->Element[2][2]);
+		reslicer->SetResliceAxesOrigin(posicaoDoReslice.data());
+
+		reslicer->Update();
+		if (!hasAlredySetCamera){
+			hasAlredySetCamera = true;
+			rendererImageLayer->ResetCamera();
+			rendererImageLayer->GetActiveCamera()->Zoom(2.0);
+		}
+		rendererImageLayer->GetRenderWindow()->Render();
+		cubeMatrix->Print(std::cout);
+		GravaTesteComoPNG(reslicer);
+
+	});
 
 	interactorStyleCubo->SetCallbackDeZoom([rendererImageLayer](double scaleFactor){
 		auto cam = rendererImageLayer->GetActiveCamera();
@@ -182,14 +220,16 @@ int main(int argc, char** argv) {
 	});
 
 
-	bool hasAlredySetCamera = false;
+
 	//Quando o cubo gira o reslice deve ser refeito com a orientação e posição espacial do cubo.
 	interactorStyleCubo->SetCallbackDeRotacao([&hasAlredySetCamera, rendererImageLayer, &posicaoDoReslice, cubeActor, reslicer, imageActor](vtkProp3D* cubo){
+		//image actor sempre no centro da tela
+		std::array<double, 3> zero = { { 0, 0, 0 } };
+		imageActor->SetPosition(zero.data());
+
 		auto cubeMatrix = vtkSmartPointer<vtkMatrix4x4>::New();
 		cubeActor->GetMatrix(cubeMatrix);
-		//image actor sempre no centro da tela
-		std::array<double, 3> zero = { {0,0,0} };
-		imageActor->SetPosition(zero.data());
+
 		cubeMatrix->Invert();
 		cubeMatrix->Element[0][3] = posicaoDoReslice[0];
 		cubeMatrix->Element[1][3] = posicaoDoReslice[1];

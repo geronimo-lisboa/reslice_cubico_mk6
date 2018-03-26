@@ -13,6 +13,7 @@ ResliceCubicoInteractionStyle::ResliceCubicoInteractionStyle()
   callbackRotacao = nullptr;
   callbackZoom = nullptr;
   callbackPan = nullptr;
+  callbackDolly = nullptr;
 }
 
 //----------------------------------------------------------------------------
@@ -477,29 +478,35 @@ void ResliceCubicoInteractionStyle::Dolly()
   double dollyFactor = pow(1.1, yf);
 
   dollyFactor -= 1.0;
-  motion_vector[0] = (view_point[0] - view_focus[0]) * dollyFactor;
-  motion_vector[1] = (view_point[1] - view_focus[1]) * dollyFactor;
-  motion_vector[2] = (view_point[2] - view_focus[2]) * dollyFactor;
+  dollyFactor = dollyFactor * 10;
+  std::cout << __FUNCTION__ << "  doly factor " << dollyFactor << std::endl;
 
-  if (this->InteractionProp->GetUserMatrix() != nullptr)
-  {
-    vtkTransform *t = vtkTransform::New();
-    t->PostMultiply();
-    t->SetMatrix(this->InteractionProp->GetUserMatrix());
-    t->Translate(motion_vector[0], motion_vector[1],
-                 motion_vector[2]);
-    this->InteractionProp->GetUserMatrix()->DeepCopy(t->GetMatrix());
-    t->Delete();
-  }
-  else
-  {
-    this->InteractionProp->AddPosition(motion_vector);
-  }
+  if (callbackDolly)
+	  callbackDolly(dollyFactor);
 
-  if (this->AutoAdjustCameraClippingRange)
-  {
-    this->CurrentRenderer->ResetCameraClippingRange();
-  }
+  //motion_vector[0] = (view_point[0] - view_focus[0]) * dollyFactor;
+  //motion_vector[1] = (view_point[1] - view_focus[1]) * dollyFactor;
+  //motion_vector[2] = (view_point[2] - view_focus[2]) * dollyFactor;
+
+  //if (this->InteractionProp->GetUserMatrix() != nullptr)
+  //{
+  //  vtkTransform *t = vtkTransform::New();
+  //  t->PostMultiply();
+  //  t->SetMatrix(this->InteractionProp->GetUserMatrix());
+  //  t->Translate(motion_vector[0], motion_vector[1],
+  //               motion_vector[2]);
+  //  this->InteractionProp->GetUserMatrix()->DeepCopy(t->GetMatrix());
+  //  t->Delete();
+  //}
+  //else
+  //{
+  //  this->InteractionProp->AddPosition(motion_vector);
+  //}
+
+  //if (this->AutoAdjustCameraClippingRange)
+  //{
+  //  this->CurrentRenderer->ResetCameraClippingRange();
+  //}
 
   rwi->Render();
 }
