@@ -114,21 +114,21 @@ int main(int argc, char** argv) {
 	rendererCubeLayer->ResetCamera();
 
 	////A saída do reslice
-	//auto imageActor = vtkSmartPointer<vtkImageActor>::New();
-	//imageActor->GetProperty()->SetColorLevel(50);
-	//imageActor->GetProperty()->SetColorWindow(350);
-	//imageActor->SetPosition(cubeActor->GetCenter());
-	//imageActor->PickableOff();
-	//rendererImageLayer->AddActor(imageActor);
-	//rendererImageLayer->ResetCamera();
+	auto imageActor = vtkSmartPointer<vtkImageActor>::New();
+	imageActor->GetProperty()->SetColorLevel(1319);
+	imageActor->GetProperty()->SetColorWindow(2639);
+	imageActor->SetPosition(cubeActor->GetCenter());
+	imageActor->PickableOff();
+	rendererImageLayer->AddActor(imageActor);
+	rendererImageLayer->ResetCamera();
 
 	////O reslicer
-	//auto reslicer = vtkSmartPointer<vtkImageSlabReslice>::New();
-	//imageActor->GetMapper()->SetInputConnection(reslicer->GetOutputPort());
-	//reslicer->SetInputConnection(imagemImportadaPraVTK->GetOutputPort());;
-	//reslicer->AutoCropOutputOn();
-	//reslicer->SetOutputDimensionality(2);
-	//reslicer->Update();
+	auto reslicer = vtkSmartPointer<vtkImageSlabReslice>::New();
+	imageActor->GetMapper()->SetInputConnection(reslicer->GetOutputPort());
+	reslicer->SetInputConnection(imagemImportadaPraVTK->GetOutputPort());;
+	reslicer->AutoCropOutputOn();
+	reslicer->SetOutputDimensionality(2);
+	reslicer->Update();
 
 
 	//vtkImageData *resultado = reslicer->GetOutput();
@@ -140,7 +140,8 @@ int main(int argc, char** argv) {
 	std::array<double, 3> posicaoDoReslice = { { imagemImportadaPraVTK->GetOutput()->GetCenter()[0], imagemImportadaPraVTK->GetOutput()->GetCenter()[1], imagemImportadaPraVTK->GetOutput()->GetCenter()[2] } };
 
 
-	interactorStyleCubo->SetCallbackPan([cubeActor, rendererCubeLayer](vtkCamera *cam, std::array<double, 3> motionVector){
+	interactorStyleCubo->SetCallbackPan([&posicaoDoReslice,cubeActor, rendererCubeLayer, imageActor](vtkCamera *cam, std::array<double, 3> motionVector){
+		///A câmera tem que acompanhar a posição do cubo.
 		auto cubeMatrix = vtkSmartPointer<vtkMatrix4x4>::New();
 		cubeActor->GetMatrix(cubeMatrix);
 		vtkCamera *cubeCam = rendererCubeLayer->GetActiveCamera();
@@ -150,17 +151,53 @@ int main(int argc, char** argv) {
 		oldFocus = oldFocus + motionVector;
 		cubeCam->SetPosition(oldPos.data());
 		cubeCam->SetFocalPoint(oldFocus.data());
-
-		cubeMatrix->Print(cout);
+		//Transforma o motion vector pela orientação
+		cubeMatrix->Element[0][3] = 0;//Pra garantir que a transformação de orientação esteja em 0,0,0, que é onde o mv tb estará
+		cubeMatrix->Element[1][3] = 0;
+		cubeMatrix->Element[2][3] = 0;
+		double __mv[4] = { motionVector[0], motionVector[1], motionVector[2], 1 };
+		double* transMv = cubeMatrix->MultiplyDoublePoint(__mv); std::array<double, 3> motionVectorInResliceSpace = { { transMv[0], transMv[1], transMv[2], } };
+		std::cout << "---" << std::endl;
+		std::cout << " motion vector = " << motionVector[0] << ", " << motionVector[1] << ", " << motionVector[2] << std::endl;
+		std::cout << " transformed motion vector = " << transMv[0] << ", " << transMv[1] << ", " << transMv[2] << std::endl;
+		posicaoDoReslice = posicaoDoReslice + motionVectorInResliceSpace;
+		std::cout << " posicaoDoReslice = " << posicaoDoReslice[0] << ", " << posicaoDoReslice[1] << ", " << posicaoDoReslice[2] << std::endl;
+		//Move a imagem usando o motion vector
+		std::array<double, 3> antiMV = motionVector * -1.0;
+		std::array<double, 3> imagePos; imageActor->GetPosition(imagePos.data());
+		imagePos = imagePos + antiMV;
+		imageActor->SetPosition(imagePos.data());
+		//cubeMatrix->Print(cout);
 	});
 
 
 	bool hasAlredySetCamera = false;
 	//Quando o cubo gira o reslice deve ser refeito com a orientação e posição espacial do cubo.
-	interactorStyleCubo->SetCallbackDeRotacao([cubeActor](vtkProp3D* cubo){
+	interactorStyleCubo->SetCallbackDeRotacao([&hasAlredySetCamera, rendererImageLayer, &posicaoDoReslice, cubeActor, reslicer, imageActor](vtkProp3D* cubo){
+		//image actor sempre no centro da tela
+		std::array<double, 3> zero = { {0,0,0} };
+		imageActor->SetPosition(zero.data());
+
 		auto cubeMatrix = vtkSmartPointer<vtkMatrix4x4>::New();
 		cubeActor->GetMatrix(cubeMatrix);
-		cubeMatrix->Print(std::cout);
+
+		cubeMatrix->Element[0][3] = posicaoDoReslice[0];
+		cubeMatrix->Element[1][3] = posicaoDoReslice[1];
+		cubeMatrix->Element[2][3] = posicaoDoReslice[2];
+
+		auto resliceTransform = vtkSmartPointer<vtkTransform>::New();
+		resliceTransform->SetMatrix(cubeMatrix);
+		resliceTransform->Update();
+
+		reslicer->SetResliceTransform(resliceTransform);
+		reslicer->Update();
+		if (!hasAlredySetCamera){
+			hasAlredySetCamera = true;
+			rendererImageLayer->ResetCamera();
+			rendererImageLayer->GetActiveCamera()->Zoom(2.0);
+		}
+		rendererImageLayer->GetRenderWindow()->Render();
+		std::cout << " posicaoDoReslice = " << posicaoDoReslice[0] << ", " << posicaoDoReslice[1] << ", " << posicaoDoReslice[2] << std::endl;
 	});
 
 	///////////////////////////////////////////////////
@@ -170,8 +207,13 @@ int main(int argc, char** argv) {
 	renderWindowDummy->AddRenderer(rendererDummy);
 	vtkSmartPointer<vtkRenderWindowInteractor> renderWindowInteractorDummy = vtkSmartPointer<vtkRenderWindowInteractor>::New();
 	renderWindowDummy->SetInteractor(renderWindowInteractorDummy);
-	renderWindowDummy->Render();
 	renderWindowDummy->MakeCurrent();
+	renderWindowDummy->Render();
+	renderWindowDummy->Render();
+	renderWindowDummy->Render();
+	renderWindowDummy->Render();
+	renderWindowDummy->Render();
+	renderWindowDummy->Render();
 	renderWindowInteractorDummy->Start();
 
 	return EXIT_SUCCESS;
