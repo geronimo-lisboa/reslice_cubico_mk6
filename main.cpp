@@ -148,6 +148,11 @@ int main(int argc, char** argv) {
 	//Qual é a posição inicial do reslice? É o centro da imagem.
 	std::array<double, 3> posicaoDoReslice = { { imagemImportadaPraVTK->GetOutput()->GetCenter()[0], imagemImportadaPraVTK->GetOutput()->GetCenter()[1], imagemImportadaPraVTK->GetOutput()->GetCenter()[2] } };
 
+	interactorStyleCubo->SetCallbackDeZoom([rendererImageLayer](double scaleFactor){
+		auto cam = rendererImageLayer->GetActiveCamera();
+		std::cout << "  paralel scale = " << cam->GetParallelScale() << std::endl;
+		cam->Zoom(scaleFactor);
+	});
 
 	interactorStyleCubo->SetCallbackPan([&posicaoDoReslice,cubeActor, rendererCubeLayer, imageActor](vtkCamera *cam, std::array<double, 3> motionVector){
 		///A câmera tem que acompanhar a posição do cubo.

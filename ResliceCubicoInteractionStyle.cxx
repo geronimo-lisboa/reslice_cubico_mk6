@@ -11,6 +11,8 @@ ResliceCubicoInteractionStyle::ResliceCubicoInteractionStyle()
   this->InteractionPicker = vtkCellPicker::New();
   this->InteractionPicker->SetTolerance(0.001);
   callbackRotacao = nullptr;
+  callbackZoom = nullptr;
+  callbackPan = nullptr;
 }
 
 //----------------------------------------------------------------------------
@@ -524,19 +526,24 @@ void ResliceCubicoInteractionStyle::UniformScale()
 
   double scale[3];
   scale[0] = scale[1] = scale[2] = scaleFactor;
-
-  this->Prop3DTransform(this->InteractionProp,
-                        obj_center,
-                        0,
-                        rotate,
-                        scale);
+  //CurrentRenderer->GetActiveCamera()->Zoom(scaleFactor);
+//  std::cout << "scale factor = " << scaleFactor << std::endl;
+  //this->Prop3DTransform(this->InteractionProp,
+  //                      obj_center,
+  //                      0,
+  //                      rotate,
+  //                      scale);
 
   if (this->AutoAdjustCameraClippingRange)
   {
     this->CurrentRenderer->ResetCameraClippingRange();
   }
 
+  if (callbackZoom)
+	  callbackZoom(scaleFactor);
+
   rwi->Render();
+
 }
 
 //----------------------------------------------------------------------------

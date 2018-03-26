@@ -8,10 +8,16 @@ class vtkCellPicker;
 class ResliceCubicoInteractionStyle : public vtkInteractorStyle
 {
 private:
+	std::function<void(double scaleFactor)> callbackZoom;
+
 	std::function<void(vtkProp3D *)> callbackRotacao;
 	//std::function<void(vtkProp3D *cubo, std::array<double, 3> motionVector)> callbackPan;
 	std::function<void(vtkCamera *cam, std::array<double, 3> motionVector)> callbackPan;
 public:
+	void SetCallbackDeZoom(std::function<void(double scaleFactor)> c){
+		callbackZoom = c;
+	}
+
 	void SetCallbackDeRotacao(std::function<void(vtkProp3D *)> c){
 		callbackRotacao = c;
 	}
